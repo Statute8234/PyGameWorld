@@ -71,10 +71,9 @@ class Button:
     def reset(self):
         self.clicked = False
         self.color = self.active_color
-
-ShopButton = Button(10, 10, 100, 40, "Shop", RED, GREEN)
-LevelUpButton = Button(130, 10, 100, 40, "Level Up", RED, GREEN)
-
+MenuButton = Button(10, 10, 100, 40, "menu", RED, GREEN)
+ShopButton = Button(130, 10, 100, 40, "Shop", RED, GREEN)
+LevelUpButton = Button(250, 10, 100, 40, "Level Up", RED, GREEN)
 # Circle
 circle_group = pygame.sprite.Group()
 class Circle(pygame.sprite.Sprite):
@@ -120,7 +119,6 @@ class Circle(pygame.sprite.Sprite):
                 new_x = event.pos[0] + self.drag_offset[0]
                 new_y = event.pos[1] + self.drag_offset[1]
                 self.body.position = (event.pos[0] + self.drag_offset[0], event.pos[1] + self.drag_offset[1])
-
 # Shop
 class ShopWindow:
     def __init__(self, width, height, position=(0, 0)):
@@ -128,10 +126,18 @@ class ShopWindow:
         self.height = height
         self.x, self.y = position[0], position[1]
         self.visible = False
-        self.CloseShopButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, GREEN)
+        self.CloseShopButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)
         self.text = "Shop"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
+
+    def update(self):
+        global screenHeight, screenWidth
+        self.width = screenWidth
+        self.height = screenHeight
+        # Update the position of the close button
+        self.CloseShopButton.x = self.x + self.width - 42
+        self.CloseShopButton.y = self.y + 2
 
     def draw(self):
         if self.visible:
@@ -148,9 +154,7 @@ class ShopWindow:
             if self.CloseShopButton.clicked:
                 self.visible = False
                 self.CloseShopButton.clicked = False
-
 shopWindow = ShopWindow(screenHeight, screenWidth, (0, 0))
-
 # Leve up
 class LevelUpWindow:
     def __init__(self, width, height, position=(0, 0)):
@@ -158,10 +162,18 @@ class LevelUpWindow:
         self.height = height
         self.x, self.y = position[0], position[1]
         self.visible = False
-        self.CloseLevelUpButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, GREEN)  # Rename the button
-        self.text = "Leve up"
+        self.CloseLevelUpButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)  # Rename the button
+        self.text = "Level up"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
+
+    def update(self):
+        global screenHeight, screenWidth
+        self.width = screenWidth
+        self.height = screenHeight
+        # Update the position of the close button
+        self.CloseLevelUpButton.x = self.x + self.width - 42
+        self.CloseLevelUpButton.y = self.y + 2
 
     def draw(self):
         if self.visible:
@@ -178,9 +190,82 @@ class LevelUpWindow:
             if self.CloseLevelUpButton.clicked:  # Use the new button
                 self.visible = False
                 self.CloseLevelUpButton.clicked = False
-
 levelUpWindow = LevelUpWindow(screenHeight, screenWidth, (0, 0))
+# Slider class
+class Slider:
+    def __init__(self, x, y, width, height, min_value, max_value):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.min_value = min_value
+        self.max_value = max_value
+        self.value = min_value  # Initial value
+        self.thumb_rect = pygame.Rect(self.x, self.y - self.height // 2, self.width, self.height)
+        self.dragging = False
+        self.SLIDER_COLOR = BLACK
+        self.THUMB_COLOR = WHITE
 
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.SLIDER_COLOR, (self.x, self.y - self.height // 2, self.width, self.height))
+        pygame.draw.rect(screen, self.THUMB_COLOR, self.thumb_rect)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.thumb_rect.collidepoint(event.pos):
+                self.dragging = True
+        elif event.type == pygame.MOUSEBUTTONUP:
+            self.dragging = False
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                # Update the thumb's position based on mouse movement
+                new_x = event.pos[0]
+                new_x = max(self.x, min(new_x, self.x + self.width))
+                self.thumb_rect.x = new_x
+                # Update the value based on the thumb's position
+                range_ = self.max_value - self.min_value
+                relative_x = new_x - self.x
+                value_ratio = relative_x / self.width
+                self.value = self.min_value + value_ratio * range_
+# Menu
+class MenuWindow:
+    def __init__(self, width, height, position=(0, 0)):
+        self.width = width
+        self.height = height
+        self.x, self.y = position[0], position[1]
+        self.visible = False
+        self.CloseLevelUpButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)  # Rename the button
+        self.text = "Menu"
+        self.font_size = min(self.width // len(self.text), self.height // 10)
+        self.font = pygame.font.Font(None, self.font_size)
+        self.slider = Slider(50, self.height // 2, self.width, self.height, 0, 100)
+
+    def update(self):
+        global screenHeight, screenWidth
+        self.width = screenWidth
+        self.height = screenHeight
+        # Update the position of the close button
+        self.CloseLevelUpButton.x = self.x + self.width - 42
+        self.CloseLevelUpButton.y = self.y + 2
+
+    def draw(self):
+        if self.visible:
+            pygame.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
+            pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
+            self.CloseLevelUpButton.draw(screen)  # Use the new button
+            self.slider.draw(screen)
+            text_surface = self.font.render(self.text, True, BLACK)
+            text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
+            screen.blit(text_surface, text_rect)
+            
+    def handle_event(self, event):
+        if self.visible:
+            self.CloseLevelUpButton.handle_event(event)  # Use the new button
+            self.slider.handle_event(event)
+            if self.CloseLevelUpButton.clicked:  # Use the new button
+                self.visible = False
+                self.CloseLevelUpButton.clicked = False
+menuWindow = MenuWindow(screenHeight, screenWidth, (0, 0))
 # drop
 time = 0
 def Drop():
@@ -208,15 +293,19 @@ while running:
             changeWindow()
         for circle in circle_group:
             circle.handle_event(event)
-        # ShopButton and LevelUpButton
+        # ShopButton,LevelUpButton,menu
         ShopButton.handle_event(event)
         LevelUpButton.handle_event(event)
+        MenuButton.handle_event(event)
         if ShopButton.clicked:
             shopWindow.visible = not shopWindow.visible  
             ShopButton.clicked = False  # Reset the ShopButton click state
         if LevelUpButton.clicked:
             levelUpWindow.visible = not levelUpWindow.visible 
             LevelUpButton.clicked = False  # Reset the LevelUpButton click state
+        if MenuButton.clicked:
+            menuWindow.visible = not menuWindow.visible 
+            MenuButton.clicked = False
     # man game
     screen.fill(background_colour)
     circle_group.update()
@@ -225,14 +314,21 @@ while running:
     all_sprites_list.draw(screen)
     ShopButton.draw(screen)
     LevelUpButton.draw(screen)
+    MenuButton.draw(screen)
     # Drop()
     # windows
     if shopWindow.visible:
         shopWindow.draw()
         shopWindow.handle_event(event)
+        shopWindow.update()
     if levelUpWindow.visible:
         levelUpWindow.draw()
         levelUpWindow.handle_event(event)
+        levelUpWindow.update()
+    if menuWindow.visible:
+        menuWindow.draw()
+        menuWindow.handle_event(event)
+        menuWindow.update()
     # update
     space.step(1/60)
     pygame.display.update()

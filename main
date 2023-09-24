@@ -1,0 +1,237 @@
+import pygame
+import sys
+import pygame.sprite
+import pymunk
+import random
+pygame.init()
+# pygame screen
+screenWidth, screenHeight = 700, 700
+screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
+# gravity
+space = pymunk.Space()
+space.gravity = (0, 1000)
+# window
+def changeWindow():
+    screen_info = pygame.display.Info()
+    screenHeight = screen_info.current_w
+    screenHeight = screen_info.current_h
+    window_left = pymunk.Segment(space.static_body, (0, 0), (0, screenHeight), 5)
+    window_right = pymunk.Segment(space.static_body, (screenHeight, 0), (screenHeight, screenHeight), 5)
+    window_bottom = pymunk.Segment(space.static_body, (0, screenHeight), (screenHeight, screenHeight), 5)
+    # Remove existing segments (if any)
+    for shape in space.shapes:
+        if isinstance(shape, pymunk.Segment):
+            space.remove(shape)
+    # Add the new segments
+    space.add(window_left, window_right, window_bottom)
+changeWindow()
+# colors
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+WHITE = (255, 255, 255)
+BROWN = (165,42,42)
+# background
+clock = pygame.time.Clock()
+background_colour = WHITE
+screen.fill(background_colour)
+pygame.display.flip()
+# buttons
+class Button:
+    def __init__(self, x, y, width, height, text, active_color, inactive_color):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.text = text
+        self.active_color = active_color
+        self.inactive_color = inactive_color
+        self.color = self.inactive_color
+        self.font_size = min(self.width // len(self.text), self.height)
+        self.font = pygame.font.Font(None, self.font_size)
+        self.clicked = False
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+        text_surface = self.font.render(self.text, True, BLACK)
+        text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
+        screen.blit(text_surface, text_rect)
+
+    def handle_event(self, event):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.x < mouse_pos[0] < self.x + self.width and self.y < mouse_pos[1] < self.y + self.height:
+            self.color = self.active_color
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    self.clicked = True  # Add this line to set the 'clicked' attribute to True
+                    self.color = self.active_color
+        else:
+            self.color = self.inactive_color
+
+    def reset(self):
+        self.clicked = False
+        self.color = self.active_color
+
+ShopButton = Button(10, 10, 100, 40, "Shop", RED, GREEN)
+LevelUpButton = Button(130, 10, 100, 40, "Level Up", RED, GREEN)
+
+# Circle
+circle_group = pygame.sprite.Group()
+class Circle(pygame.sprite.Sprite):
+    def __init__(self, mass, radius, position=(0, 0)):
+        super().__init__()
+        self.radius = radius
+        self.mass = mass
+        self.position = position
+        moment = pymunk.moment_for_circle(mass, 0, radius)
+        self.body = pymunk.Body(mass, moment, body_type=pymunk.Body.DYNAMIC)
+        self.body.position = position  # Set the initial position
+        self.shape = pymunk.Circle(self.body, self.radius)
+        space.add(self.body, self.shape)
+        self.shape.collision_type = 1
+        self.shape.elasticity = 0.5
+        self.image = pygame.Surface((2 * self.radius, 2 * self.radius), pygame.SRCALPHA)
+        self.newColor = (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255))
+        pygame.draw.circle(self.image, self.newColor + (255,), (self.radius, self.radius), self.radius)
+        self.rect = self.image.get_rect()
+        self.rect.center = self.body.position  # Set the initial position
+        self.dragging = False
+
+    def update(self):
+        global screenWidth, screenHeight
+        new_x = max(self.radius, min(self.body.position.x, screenWidth - self.radius))
+        new_y = max(self.radius, min(self.body.position.y, screenHeight - self.radius))
+        self.body.position = pymunk.Vec2d(new_x, new_y)
+        self.rect.center = int(self.body.position.x), int(self.body.position.y)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                # Check if the mouse click is inside the circle
+                if self.rect.collidepoint(event.pos):
+                    self.dragging = True
+                    self.drag_offset = (self.body.position.x - event.pos[0], self.body.position.y - event.pos[1])
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                self.dragging = False
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                # Move the circle with the mouse
+                new_x = event.pos[0] + self.drag_offset[0]
+                new_y = event.pos[1] + self.drag_offset[1]
+                self.body.position = (event.pos[0] + self.drag_offset[0], event.pos[1] + self.drag_offset[1])
+
+# Shop
+class ShopWindow:
+    def __init__(self, width, height, position=(0, 0)):
+        self.width = width
+        self.height = height
+        self.x, self.y = position[0], position[1]
+        self.visible = False
+        self.CloseShopButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, GREEN)
+        self.text = "Shop"
+        self.font_size = min(self.width // len(self.text), self.height // 10)
+        self.font = pygame.font.Font(None, self.font_size)
+
+    def draw(self):
+        if self.visible:
+            pygame.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
+            pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
+            self.CloseShopButton.draw(screen)
+            text_surface = self.font.render(self.text, True, BLACK)
+            text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
+            screen.blit(text_surface, text_rect)
+
+    def handle_event(self, event):
+        if self.visible:
+            self.CloseShopButton.handle_event(event)
+            if self.CloseShopButton.clicked:
+                self.visible = False
+
+shopWindow = ShopWindow(screenHeight, screenWidth, (0, 0))
+
+# Leve up
+class LevelUpWindow:
+    def __init__(self, width, height, position=(0, 0)):
+        self.width = width
+        self.height = height
+        self.x, self.y = position[0], position[1]
+        self.visible = False
+        self.CloseShopButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, GREEN)
+        self.text = "Leve up"
+        self.font_size = min(self.width // len(self.text), self.height // 10)
+        self.font = pygame.font.Font(None, self.font_size)
+
+    def draw(self):
+        if self.visible:
+            pygame.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
+            pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
+            self.CloseShopButton.draw(screen)
+            text_surface = self.font.render(self.text, True, BLACK)
+            text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
+            screen.blit(text_surface, text_rect)
+
+    def handle_event(self, event):
+        if self.visible:
+            self.CloseShopButton.handle_event(event)
+            if self.CloseShopButton.clicked:
+                self.visible = False
+
+levelUpWindow = LevelUpWindow(screenHeight, screenWidth, (0, 0))
+
+# loop
+all_sprites_list = pygame.sprite.Group()
+time = 0
+def Drop():
+    global time
+    time += 1
+    if time % 100 == 0:
+        for item in range(int(random.triangular(1,10,3))):
+            circle = Circle(1, 10,(random.randint(0,screenWidth),10))
+            circle_group.add(circle)
+            all_sprites_list.add(circle)
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+            sys.exit()
+        # resize window
+        elif event.type == pygame.VIDEORESIZE:
+            screenWidth, screenHeight = event.size
+            screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
+            changeWindow()
+        for circle in circle_group:
+            circle.handle_event(event)
+        # ShopButton and LevelUpButton
+        ShopButton.handle_event(event)
+        LevelUpButton.handle_event(event)
+        if ShopButton.clicked:
+            shopWindow.visible = not shopWindow.visible
+            ShopButton.clicked = False  # Reset the ShopButton click state
+        shopWindow.handle_event(event)
+        if LevelUpButton.clicked:
+            levelUpWindow.visible = not levelUpWindow.visible
+            LevelUpButton.clicked = False  # Reset the LevelUpButton click state
+        levelUpWindow.handle_event(event)
+    # man game
+    screen.fill(background_colour)
+    circle_group.update()
+    circle_group.draw(screen)
+    all_sprites_list.update()
+    all_sprites_list.draw(screen)
+    ShopButton.draw(screen)
+    LevelUpButton.draw(screen)
+    Drop()
+    # windows
+    if shopWindow.visible:
+        shopWindow.draw()
+    if levelUpWindow.visible:
+        levelUpWindow.draw()
+    # update
+    space.step(1/60)
+    pygame.display.update()
+    clock.tick(60)
+pygame.quit()
+sys.exit()

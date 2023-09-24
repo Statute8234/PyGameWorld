@@ -147,6 +147,7 @@ class ShopWindow:
             self.CloseShopButton.handle_event(event)
             if self.CloseShopButton.clicked:
                 self.visible = False
+                self.CloseShopButton.clicked = False
 
 shopWindow = ShopWindow(screenHeight, screenWidth, (0, 0))
 
@@ -176,6 +177,7 @@ class LevelUpWindow:
             self.CloseLevelUpButton.handle_event(event)  # Use the new button
             if self.CloseLevelUpButton.clicked:  # Use the new button
                 self.visible = False
+                self.CloseLevelUpButton.clicked = False
 
 levelUpWindow = LevelUpWindow(screenHeight, screenWidth, (0, 0))
 
@@ -212,11 +214,9 @@ while running:
         if ShopButton.clicked:
             shopWindow.visible = not shopWindow.visible  
             ShopButton.clicked = False  # Reset the ShopButton click state
-        shopWindow.handle_event(event)
         if LevelUpButton.clicked:
             levelUpWindow.visible = not levelUpWindow.visible 
             LevelUpButton.clicked = False  # Reset the LevelUpButton click state
-        levelUpWindow.handle_event(event)
     # man game
     screen.fill(background_colour)
     circle_group.update()
@@ -229,8 +229,10 @@ while running:
     # windows
     if shopWindow.visible:
         shopWindow.draw()
+        shopWindow.handle_event(event)
     if levelUpWindow.visible:
         levelUpWindow.draw()
+        levelUpWindow.handle_event(event)
     # update
     space.step(1/60)
     pygame.display.update()

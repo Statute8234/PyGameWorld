@@ -157,7 +157,7 @@ class LevelUpWindow:
         self.height = height
         self.x, self.y = position[0], position[1]
         self.visible = False
-        self.CloseShopButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, GREEN)
+        self.CloseLevelUpButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, GREEN)  # Rename the button
         self.text = "Leve up"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
@@ -166,21 +166,20 @@ class LevelUpWindow:
         if self.visible:
             pygame.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
             pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
-            self.CloseShopButton.draw(screen)
+            self.CloseLevelUpButton.draw(screen)  # Use the new button
             text_surface = self.font.render(self.text, True, BLACK)
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
 
     def handle_event(self, event):
         if self.visible:
-            self.CloseShopButton.handle_event(event)
-            if self.CloseShopButton.clicked:
+            self.CloseLevelUpButton.handle_event(event)  # Use the new button
+            if self.CloseLevelUpButton.clicked:  # Use the new button
                 self.visible = False
 
 levelUpWindow = LevelUpWindow(screenHeight, screenWidth, (0, 0))
 
-# loop
-all_sprites_list = pygame.sprite.Group()
+# drop
 time = 0
 def Drop():
     global time
@@ -190,7 +189,10 @@ def Drop():
             circle = Circle(1, 10,(random.randint(0,screenWidth),10))
             circle_group.add(circle)
             all_sprites_list.add(circle)
-
+# loop
+all_sprites_list = pygame.sprite.Group()
+shopWindow.visible = False
+levelUpWindow.visible = False
 running = True
 while running:
     for event in pygame.event.get():
@@ -208,11 +210,11 @@ while running:
         ShopButton.handle_event(event)
         LevelUpButton.handle_event(event)
         if ShopButton.clicked:
-            shopWindow.visible = not shopWindow.visible
+            shopWindow.visible = not shopWindow.visible  
             ShopButton.clicked = False  # Reset the ShopButton click state
         shopWindow.handle_event(event)
         if LevelUpButton.clicked:
-            levelUpWindow.visible = not levelUpWindow.visible
+            levelUpWindow.visible = not levelUpWindow.visible 
             LevelUpButton.clicked = False  # Reset the LevelUpButton click state
         levelUpWindow.handle_event(event)
     # man game
@@ -223,7 +225,7 @@ while running:
     all_sprites_list.draw(screen)
     ShopButton.draw(screen)
     LevelUpButton.draw(screen)
-    Drop()
+    # Drop()
     # windows
     if shopWindow.visible:
         shopWindow.draw()

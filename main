@@ -1,9 +1,11 @@
-import pygame
-import sys
 import pygame.sprite
-import pymunk
-import random
-import time
+import pygame
+import random, time, pymunk, sys, math
+import pygame_widgets
+from pygame_widgets.slider import Slider
+from pygame_widgets.textbox import TextBox
+from pygame import mixer
+mixer.init()
 pygame.init()
 # pygame screen
 screenWidth, screenHeight = 700, 700
@@ -31,7 +33,6 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 WHITE = (255, 255, 255)
-BROWN = (165,42,42)
 # background
 clock = pygame.time.Clock()
 background_colour = WHITE
@@ -58,7 +59,7 @@ class Text:
 endGame = Text("Sorry, you lost the game! would you like to restart?", 36, (255, 0, 0), ((screenHeight / 2) - 300,(screenWidth / 2) - 90))
 currentXP = 0
 currentLevel = 1
-xp = Text("XP: ", 36, (255, 0, 0), ((screenHeight / 2) + 100,25))
+xp = Text("XP: ", 36, BLACK, ((screenHeight / 2) + 100,25))
 # buttons
 class Button:
     def __init__(self, x, y, width, height, text, active_color, inactive_color):
@@ -173,12 +174,12 @@ class ShopWindow:
         self.selected_button = None
         self.BackgroundColor = WHITE
         # error
-        self.NotEnoughMoney = Text("sorry, you don't have enough XP", 36, (255, 0, 0), ((screenWidth / 2) - 200,100))
+        self.NotEnoughMoney = Text("sorry, you don't have enough XP", 36, BLACK, ((screenWidth / 2) - 200,100))
         # store buttons
         self.styleList = []
         self.buttonList = []
         # change background color
-        self.Background = Text("What background color would you like? 10xp", 36, (255, 0, 0), (10,160))
+        self.Background = Text("What background color would you like? 10xp", 36, BLACK, (10,160))
         for x in range(6):
             color = (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255))
             item_name = "{}".format(color)
@@ -186,7 +187,7 @@ class ShopWindow:
             self.styleList.append(color)
             self.buttonList.append(Items)
         # change window background
-        self.WindowBackground = Text("What window background color would you like? 20xp", 36, (255, 0, 0), (10,265))
+        self.WindowBackground = Text("What window background color would you like? 20xp", 36, BLACK, (10,265))
         for x in range(6):
             color = (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255))
             item_name = "{}".format(color)
@@ -266,27 +267,29 @@ class LevelUpWindow:
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
         self.BackgroundColor = WHITE
-         # error
-        self.NotEnoughLevels = Text("sorry, you don't have enough Levels", 36, (255, 0, 0), ((screenWidth / 2) - 200,100))
-        # store buttons
-        self.buttonList = []
-        # change background color
-        self.row = Text("How big would you like the row to be? 3 Levels per button", 36, (255, 0, 0), (10,160))
-        for x in range(screenWidth // 10 == 0):
-            Items = Button(10 + (x * 110), 200, 100, 40,str(x * 100), RED, GREEN)
-            self.buttonList.append(Items)
-        # change window background
-        self.column = Text("How big would you like the column to be? 6 Levels per button", 36, (255, 0, 0), (10,265))
+        # error
+        self.NotEnoughLevels = Text("sorry, you don't have enough Levels", 36, BLACK, ((screenWidth / 2) - 200,100))
+        # Create separate button lists for rows and columns
+        self.rowButtonList = []
+        self.columnButtonList = []
+        # row
+        self.row = Text("How big would you like the row to be? 3 Levels per button", 36, BLACK, (10,160))
+        self.create_buttons(200, self.rowButtonList)
+        # column
+        self.column = Text("How big would you like the column to be? 6 Levels per button", 36, BLACK, (10,265))
+        self.create_buttons(300, self.columnButtonList)
+
+    def create_buttons(self, y, button_list):
         button_width = 100
         button_spacing = 10
         available_width = screenWidth - 20  # Subtracting 20 for left and right margin
         num_buttons = available_width // (button_width + button_spacing)
-        self.buttonList = []
+        
         for x in range(num_buttons):
             button_x = 10 + x * (button_width + button_spacing)
             label = str(100 + x * 100)
-            Items = Button(button_x, 300, button_width, 40, label, RED, GREEN)
-            self.buttonList.append(Items)
+            Items = Button(button_x, y, button_width, 40, label, RED, GREEN)
+            button_list.append(Items)
 
     def update(self):
         global screenHeight, screenWidth
@@ -296,80 +299,52 @@ class LevelUpWindow:
         self.CloseLevelUpButton.x = self.x + self.width - 42
         self.CloseLevelUpButton.y = self.y + 2
 
-    def update_buttons(self):
-        global screenWidth, screenHeight
-        button_width = 100
-        button_spacing = 10
-        available_width = screenWidth - 20  # Subtracting 20 for left and right margin
-        num_buttons = available_width // (button_width + button_spacing)
-
-        # Clear the existing button list
-        for item in self.buttonList:
-            space.remove(item.body, item.shape)
-        self.buttonList.clear()
-
-        for x in range(num_buttons):
-            button_x = 10 + x * (button_width + button_spacing)
-            label = str(100 + x * 100)
-            Items = Button(button_x, 300, button_width, 40, label, RED, GREEN)
-            self.buttonList.append(Items)
-
     def draw(self):
         if self.visible:
             pygame.draw.rect(screen, self.BackgroundColor, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
             pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
             self.CloseLevelUpButton.draw(screen)  # Use the new button
+            self.row.render(screen)
+            self.column.render(screen)
             text_surface = self.font.render(self.text.format(currentLevel), True, BLACK)
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
-            # draw buttons
-            for Item in self.buttonList:
+            # draw buttons for rows
+            for Item in self.rowButtonList:
                 Item.draw(screen)
+            # draw buttons for columns
+            for Item in self.columnButtonList:
+                Item.draw(screen)
+
+    def NotEnoughMoneyMessage(self):
+        if self.not_enough_money_timer > 0:
+            self.not_enough_money_timer -= 1
+            self.NotEnoughMoney.render(screen)
 
     def handle_event(self, event):
         if self.visible:
-            self.CloseLevelUpButton.handle_event(event)  # Use the new button
-            if self.CloseLevelUpButton.clicked:  # Use the new button
+            self.CloseLevelUpButton.handle_event(event)
+            if self.CloseLevelUpButton.clicked:
                 self.visible = False
                 self.CloseLevelUpButton.clicked = False
+            # row
+            for Item in self.rowButtonList:
+                Item.handle_event(event)
+                if Item.clicked:
+                    self.selected_button = Item
+                    selected_index = self.rowButtonList.index(self.selected_button)
+                    if self.selected_button.y == 200 and currentXP < 10:
+                        self.not_enough_money_timer = 100
+            # column
+            for Item in self.columnButtonList:
+                Item.handle_event(event)
+                if Item.clicked:
+                    self.selected_button = Item
+                    selected_index = self.columnButtonList.index(self.selected_button)
+                    if self.selected_button.y == 300 and currentXP < 20:
+                        self.not_enough_money_timer = 100
 levelUpWindow = LevelUpWindow(screenHeight, screenWidth, (0, 0))
-# Slider class
-class Slider:
-    def __init__(self, x, y, width, height, min_value, max_value):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.min_value = min_value
-        self.max_value = max_value
-        self.value = min_value  # Initial value
-        self.thumb_rect = pygame.Rect(self.x, self.y - self.height // 2, self.width, self.height)
-        self.dragging = False
-        self.SLIDER_COLOR = BLACK
-        self.THUMB_COLOR = WHITE
-
-    def draw(self, screen):
-        pygame.draw.rect(screen, self.SLIDER_COLOR, (self.x, self.y - self.height // 2, self.width, self.height))
-        pygame.draw.rect(screen, self.THUMB_COLOR, self.thumb_rect)
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if self.thumb_rect.collidepoint(event.pos):
-                self.dragging = True
-        elif event.type == pygame.MOUSEBUTTONUP:
-            self.dragging = False
-        elif event.type == pygame.MOUSEMOTION:
-            if self.dragging:
-                # Update the thumb's position based on mouse movement
-                new_x = event.pos[0]
-                new_x = max(self.x, min(new_x, self.x + self.width))
-                self.thumb_rect.x = new_x
-                # Update the value based on the thumb's position
-                range_ = self.max_value - self.min_value
-                relative_x = new_x - self.x
-                value_ratio = relative_x / self.width
-                self.value = self.min_value + value_ratio * range_
-# Menu
+#menu
 class MenuWindow:
     def __init__(self, width, height, position=(0, 0)):
         self.width = width
@@ -380,8 +355,24 @@ class MenuWindow:
         self.text = "Menu"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
-        #self.slider = Slider(50, self.height // 2, self.width, self.height, 0, 100)
         self.BackgroundColor = WHITE
+        # texxt
+        self.message = Text("your changes will apply when you exit the window", 36, BLACK, ((screenWidth / 2) - 300,100))
+        # slider 1
+        self.sound = Text("Music", 36, BLACK, (10,160))
+        self.Soundslider = Slider(screen, 10, 200, 200, 10, min=0, max=1.0, step=0.1, initial = 1.0)
+        self.Soundsoutput = TextBox(screen, 220, 170, 50, 50, fontSize=30)
+        self.Soundsoutput.disable()
+        # slider 2
+        self.soundEffects = Text("Sound Effecs", 36, BLACK, (10,260))
+        self.soundEffectsslider = Slider(screen, 10, 300, 200, 10, min=0, max=1.0, step=0.1, initial = 1.0)
+        self.soundEffectssoutput = TextBox(screen, 220, 270, 50, 50, fontSize=30)
+        self.soundEffectssoutput.disable()
+        # slider 3
+        self.frameRate = Text("Frame rate", 36, BLACK, (10,360))
+        self.frameRateslider = Slider(screen, 10, 400, 128, 10, min=1, max=64, step=1, initial = 100)
+        self.frameRatesoutput = TextBox(screen, 148, 370, 50, 50, fontSize=30)
+        self.frameRatesoutput.disable()
 
     def update(self):
         global screenHeight, screenWidth
@@ -396,20 +387,29 @@ class MenuWindow:
             pygame.draw.rect(screen, self.BackgroundColor, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
             pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
             self.CloseMenuButton.draw(screen)  # Use the new button
-            #self.slider.draw(screen)
+            self.sound.render(screen)
+            self.soundEffects.render(screen)
+            self.frameRate.render(screen)
+            self.message.render(screen)
+            self.Soundsoutput.setText(round(self.Soundslider.getValue(), 2))
+            self.soundEffectssoutput.setText(round(self.soundEffectsslider.getValue(), 2))
+            self.frameRatesoutput.setText(self.frameRateslider.getValue())
             text_surface = self.font.render(self.text, True, BLACK)
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
             
     def handle_event(self, event):
-        global game_paused
+        global game_paused, frameRate, Background_volume, soundEffect_volume
         if self.visible:
             self.CloseMenuButton.handle_event(event)  # Use the new button
-            #self.slider.handle_event(event)
+            pygame_widgets.update(event)
             if self.CloseMenuButton.clicked:  # Use the new button
                 self.visible = False
                 self.CloseMenuButton.clicked = False
                 game_paused = False
+                Background_volume = self.Soundslider.getValue()
+                soundEffect_volume = self.Soundslider.getValue()
+                frameRate = self.frameRateslider.getValue()
 menuWindow = MenuWindow(screenHeight, screenWidth, (0, 0))
 # drop
 time = 0
@@ -423,7 +423,7 @@ def Drop():
             all_sprites_list.add(circle)
 
 def RestartLevel():
-    global circle_group, all_sprites_list
+    global circle_group, all_sprites_list, currentXP, currentLevel, background_colour
     for circle in circle_group:
         space.remove(circle.body, circle.shape)
     circle_group.empty()
@@ -436,6 +436,11 @@ def RestartLevel():
     shopWindow.visible = False
     levelUpWindow.visible = False
     menuWindow.visible = False
+    # return defult
+    shopWindow.BackgroundColor = WHITE
+    menuWindow.BackgroundColor = WHITE
+    levelUpWindow.BackgroundColor = WHITE
+    background_colour = WHITE
     # reset value
     currentXP = 0
     currentLevel = 1
@@ -453,6 +458,12 @@ shopWindow.visible = False
 levelUpWindow.visible = False
 running = True
 game_paused = False
+# settings
+frameRate = 64
+Background_volume = 1.0
+soundEffect_volume = 1.0
+soundEffectMusic = mixer.music.set_volume(soundEffect_volume)
+BackgroundMusic = mixer.music.set_volume(Background_volume)
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -485,7 +496,6 @@ while running:
     # man game
     screen.fill(background_colour)
     xp.update("Level: {} XP: {}".format(currentLevel,currentXP))
-    xp.render(screen)
     # sprites
     circle_group.update()
     circle_group.draw(screen)
@@ -495,7 +505,7 @@ while running:
     LevelUpButton.draw(screen)
     MenuButton.draw(screen)
     # restart game
-    if len(circle_group) >= (screenHeight * screenWidth) / 15:
+    if len(circle_group) >= (screenHeight * screenWidth):
         endGame.render(screen)
         RestartButton.handle_event(event)
         RestartButton.draw(screen)
@@ -506,6 +516,7 @@ while running:
         if game_paused == False:
             Drop()
             space.step(1/60)
+    xp.render(screen)
     # windows
     if shopWindow.visible:
         shopWindow.draw()
@@ -521,6 +532,6 @@ while running:
         menuWindow.update()
     # update
     pygame.display.update()
-    clock.tick(60)
+    clock.tick(frameRate)
 pygame.quit()
 sys.exit()

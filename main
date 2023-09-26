@@ -3,6 +3,7 @@ import sys
 import pygame.sprite
 import pymunk
 import random
+import time
 pygame.init()
 # pygame screen
 screenWidth, screenHeight = 700, 700
@@ -15,9 +16,9 @@ def changeWindow():
     screen_info = pygame.display.Info()
     screenHeight = screen_info.current_w
     screenHeight = screen_info.current_h
-    window_left = pymunk.Segment(space.static_body, (0, 0), (0, screenHeight), 5)
-    window_right = pymunk.Segment(space.static_body, (screenHeight, 0), (screenHeight, screenHeight), 5)
-    window_bottom = pymunk.Segment(space.static_body, (0, screenHeight), (screenHeight, screenHeight), 5)
+    window_left = pymunk.Segment(space.static_body, (0, 0), (0, screenHeight), 2)
+    window_right = pymunk.Segment(space.static_body, (screenHeight, 0), (screenHeight, screenHeight), 2)
+    window_bottom = pymunk.Segment(space.static_body, (0, screenHeight), (screenHeight, screenHeight), 2)
     # Remove existing segments (if any)
     for shape in space.shapes:
         if isinstance(shape, pymunk.Segment):
@@ -36,6 +37,28 @@ clock = pygame.time.Clock()
 background_colour = WHITE
 screen.fill(background_colour)
 pygame.display.flip()
+# text
+class Text:
+    def __init__(self, text, font_size, color, position):
+        self.text = text
+        self.font_size = font_size
+        self.color = color
+        self.position = position
+        self.font = pygame.font.Font(None, self.font_size)  # You can specify a font file or use None for default font
+        self.rendered_text = None
+
+    def update(self, new_text):
+        self.text = new_text
+        self.rendered_text = None  # Clear the rendered text to update it
+
+    def render(self, screen):
+        if self.rendered_text is None:
+            self.rendered_text = self.font.render(self.text, True, self.color)
+        screen.blit(self.rendered_text, self.position)
+endGame = Text("Sorry, you lost the game! would you like to restart?", 36, (255, 0, 0), ((screenHeight / 2) - 300,(screenWidth / 2) - 90))
+currentXP = 0
+currentLevel = 1
+xp = Text("XP: ", 36, (255, 0, 0), ((screenHeight / 2) + 100,25))
 # buttons
 class Button:
     def __init__(self, x, y, width, height, text, active_color, inactive_color):
@@ -47,7 +70,7 @@ class Button:
         self.active_color = active_color
         self.inactive_color = inactive_color
         self.color = self.inactive_color
-        self.font_size = min(self.width // len(self.text), self.height)
+        self.font_size = min(self.width // len(self.text) + 10, self.height)
         self.font = pygame.font.Font(None, self.font_size)
         self.clicked = False
 
@@ -74,7 +97,9 @@ class Button:
 MenuButton = Button(10, 10, 100, 40, "menu", RED, GREEN)
 ShopButton = Button(130, 10, 100, 40, "Shop", RED, GREEN)
 LevelUpButton = Button(250, 10, 100, 40, "Level Up", RED, GREEN)
+RestartButton = Button((screenHeight / 2),(screenWidth / 2), 100, 40, "Restart", GREEN, RED)
 # Circle
+currently_dragged_circle = None
 circle_group = pygame.sprite.Group()
 class Circle(pygame.sprite.Sprite):
     def __init__(self, mass, radius, position=(0, 0)):
@@ -100,16 +125,30 @@ class Circle(pygame.sprite.Sprite):
         global screenWidth, screenHeight
         new_x = max(self.radius, min(self.body.position.x, screenWidth - self.radius))
         new_y = max(self.radius, min(self.body.position.y, screenHeight - self.radius))
-        self.body.position = pymunk.Vec2d(new_x, new_y)
         self.rect.center = int(self.body.position.x), int(self.body.position.y)
+        self.body.position = pymunk.Vec2d(new_x, new_y)
+        if self.dragging:
+            # Apply gravity when not dragging
+            self.body.velocity = (0, 0)
 
     def handle_event(self, event):
+        global currently_dragged_circle
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 # Check if the mouse click is inside the circle
                 if self.rect.collidepoint(event.pos):
+                    currently_dragged_circle = self
                     self.dragging = True
                     self.drag_offset = (self.body.position.x - event.pos[0], self.body.position.y - event.pos[1])
+            if event.button == 3:
+                global LevelUpRequirerments
+                # Check if the mouse click is inside the circle
+                if self.rect.collidepoint(event.pos):
+                    circle_group.remove(circle)
+                    all_sprites_list.remove(circle)
+                    space.remove(self.body, self.shape)
+                    LevelUp()
+  
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
                 self.dragging = False
@@ -118,7 +157,7 @@ class Circle(pygame.sprite.Sprite):
                 # Move the circle with the mouse
                 new_x = event.pos[0] + self.drag_offset[0]
                 new_y = event.pos[1] + self.drag_offset[1]
-                self.body.position = (event.pos[0] + self.drag_offset[0], event.pos[1] + self.drag_offset[1])
+                self.body.position = (new_x, new_y)
 # Shop
 class ShopWindow:
     def __init__(self, width, height, position=(0, 0)):
@@ -127,9 +166,33 @@ class ShopWindow:
         self.x, self.y = position[0], position[1]
         self.visible = False
         self.CloseShopButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)
-        self.text = "Shop"
+        self.text = "Shop   {}xp"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
+        self.not_enough_money_timer = 0
+        self.selected_button = None
+        self.BackgroundColor = WHITE
+        # error
+        self.NotEnoughMoney = Text("sorry, you don't have enough XP", 36, (255, 0, 0), ((screenWidth / 2) - 200,100))
+        # store buttons
+        self.styleList = []
+        self.buttonList = []
+        # change background color
+        self.Background = Text("What background color would you like? 10xp", 36, (255, 0, 0), (10,160))
+        for x in range(6):
+            color = (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255))
+            item_name = "{}".format(color)
+            Items = Button(10 + (x * 110), 200, 100, 40,item_name, RED, color)
+            self.styleList.append(color)
+            self.buttonList.append(Items)
+        # change window background
+        self.WindowBackground = Text("What window background color would you like? 20xp", 36, (255, 0, 0), (10,265))
+        for x in range(6):
+            color = (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255))
+            item_name = "{}".format(color)
+            Items = Button(10 + (x * 110), 300, 100, 40,item_name, RED, color)
+            self.styleList.append(color)
+            self.buttonList.append(Items)
 
     def update(self):
         global screenHeight, screenWidth
@@ -138,34 +201,92 @@ class ShopWindow:
         # Update the position of the close button
         self.CloseShopButton.x = self.x + self.width - 42
         self.CloseShopButton.y = self.y + 2
-
+    
+    def NotEnoughMoneyMessage(self):
+        if self.not_enough_money_timer > 0:
+            self.not_enough_money_timer -= 1
+            self.NotEnoughMoney.render(screen)
+                
     def draw(self):
+        global currentXP
         if self.visible:
-            pygame.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
+            pygame.draw.rect(screen, self.BackgroundColor, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
             pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
             self.CloseShopButton.draw(screen)
-            text_surface = self.font.render(self.text, True, BLACK)
+            self.Background.render(screen)
+            self.WindowBackground.render(screen)
+            # draw buttons
+            for Item in self.buttonList:
+                Item.draw(screen)
+            # Draw the "Not Enough Money" message on top of buttons
+            self.NotEnoughMoneyMessage()
+            text_surface = self.font.render(self.text.format(currentXP), True, BLACK)
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
 
     def handle_event(self, event):
+        global background_colour, currentXP, shopWindow, menuWindow, levelUpWindow
         if self.visible:
             self.CloseShopButton.handle_event(event)
             if self.CloseShopButton.clicked:
                 self.visible = False
                 self.CloseShopButton.clicked = False
-shopWindow = ShopWindow(screenHeight, screenWidth, (0, 0))
-# Leve up
+                self.selected_button = None
+            # change theme
+            for Item in self.buttonList:
+                Item.handle_event(event)
+                if Item.clicked:
+                    self.selected_button = Item
+                    selected_index = self.buttonList.index(self.selected_button)
+                    # Check the stored position information
+                    if self.selected_button.y == 200 and currentXP >= 10:
+                        background_colour = self.styleList[selected_index]
+                        currentXP -= 10
+                    elif self.selected_button.y == 200 and currentXP < 10:
+                        self.not_enough_money_timer = 100
+                    elif self.selected_button.y == 300 and currentXP >= 20:
+                        shopWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
+                        menuWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
+                        levelUpWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
+                        currentXP -= 20
+                    elif self.selected_button.y == 300 and currentXP < 20:
+                        self.not_enough_money_timer = 100
+                    self.selected_button.clicked = False
+shopWindow = ShopWindow(screenHeight, screenWidth, position=(0, 0))
+# Level up
 class LevelUpWindow:
     def __init__(self, width, height, position=(0, 0)):
+        global screenHeight, screenWidth
         self.width = width
         self.height = height
         self.x, self.y = position[0], position[1]
         self.visible = False
         self.CloseLevelUpButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)  # Rename the button
-        self.text = "Level up"
+        self.text = "Level up   {} Levels"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
+        self.BackgroundColor = WHITE
+         # error
+        self.NotEnoughLevels = Text("sorry, you don't have enough Levels", 36, (255, 0, 0), ((screenWidth / 2) - 200,100))
+        # store buttons
+        self.buttonList = []
+        # change background color
+        self.row = Text("How big would you like the row to be? 3 Levels per button", 36, (255, 0, 0), (10,160))
+        for x in range(screenWidth // 10 == 0):
+            Items = Button(10 + (x * 110), 200, 100, 40,str(x * 100), RED, GREEN)
+            self.buttonList.append(Items)
+        # change window background
+        self.column = Text("How big would you like the column to be? 6 Levels per button", 36, (255, 0, 0), (10,265))
+        button_width = 100
+        button_spacing = 10
+        available_width = screenWidth - 20  # Subtracting 20 for left and right margin
+        num_buttons = available_width // (button_width + button_spacing)
+        self.buttonList = []
+        for x in range(num_buttons):
+            button_x = 10 + x * (button_width + button_spacing)
+            label = str(100 + x * 100)
+            Items = Button(button_x, 300, button_width, 40, label, RED, GREEN)
+            self.buttonList.append(Items)
 
     def update(self):
         global screenHeight, screenWidth
@@ -175,14 +296,35 @@ class LevelUpWindow:
         self.CloseLevelUpButton.x = self.x + self.width - 42
         self.CloseLevelUpButton.y = self.y + 2
 
+    def update_buttons(self):
+        global screenWidth, screenHeight
+        button_width = 100
+        button_spacing = 10
+        available_width = screenWidth - 20  # Subtracting 20 for left and right margin
+        num_buttons = available_width // (button_width + button_spacing)
+
+        # Clear the existing button list
+        for item in self.buttonList:
+            space.remove(item.body, item.shape)
+        self.buttonList.clear()
+
+        for x in range(num_buttons):
+            button_x = 10 + x * (button_width + button_spacing)
+            label = str(100 + x * 100)
+            Items = Button(button_x, 300, button_width, 40, label, RED, GREEN)
+            self.buttonList.append(Items)
+
     def draw(self):
         if self.visible:
-            pygame.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
+            pygame.draw.rect(screen, self.BackgroundColor, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
             pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
             self.CloseLevelUpButton.draw(screen)  # Use the new button
-            text_surface = self.font.render(self.text, True, BLACK)
+            text_surface = self.font.render(self.text.format(currentLevel), True, BLACK)
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
+            # draw buttons
+            for Item in self.buttonList:
+                Item.draw(screen)
 
     def handle_event(self, event):
         if self.visible:
@@ -234,37 +376,40 @@ class MenuWindow:
         self.height = height
         self.x, self.y = position[0], position[1]
         self.visible = False
-        self.CloseLevelUpButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)  # Rename the button
+        self.CloseMenuButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)  # Rename the button
         self.text = "Menu"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
-        self.slider = Slider(50, self.height // 2, self.width, self.height, 0, 100)
+        #self.slider = Slider(50, self.height // 2, self.width, self.height, 0, 100)
+        self.BackgroundColor = WHITE
 
     def update(self):
         global screenHeight, screenWidth
         self.width = screenWidth
         self.height = screenHeight
         # Update the position of the close button
-        self.CloseLevelUpButton.x = self.x + self.width - 42
-        self.CloseLevelUpButton.y = self.y + 2
+        self.CloseMenuButton.x = self.x + self.width - 42
+        self.CloseMenuButton.y = self.y + 2
 
     def draw(self):
         if self.visible:
-            pygame.draw.rect(screen, WHITE, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
+            pygame.draw.rect(screen, self.BackgroundColor, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
             pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
-            self.CloseLevelUpButton.draw(screen)  # Use the new button
-            self.slider.draw(screen)
+            self.CloseMenuButton.draw(screen)  # Use the new button
+            #self.slider.draw(screen)
             text_surface = self.font.render(self.text, True, BLACK)
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
             
     def handle_event(self, event):
+        global game_paused
         if self.visible:
-            self.CloseLevelUpButton.handle_event(event)  # Use the new button
-            self.slider.handle_event(event)
-            if self.CloseLevelUpButton.clicked:  # Use the new button
+            self.CloseMenuButton.handle_event(event)  # Use the new button
+            #self.slider.handle_event(event)
+            if self.CloseMenuButton.clicked:  # Use the new button
                 self.visible = False
-                self.CloseLevelUpButton.clicked = False
+                self.CloseMenuButton.clicked = False
+                game_paused = False
 menuWindow = MenuWindow(screenHeight, screenWidth, (0, 0))
 # drop
 time = 0
@@ -273,14 +418,41 @@ def Drop():
     time += 1
     if time % 100 == 0:
         for item in range(int(random.triangular(1,10,3))):
-            circle = Circle(1, 10,(random.randint(0,screenWidth),10))
+            circle = Circle(1, 15,(random.randint(0,screenWidth),15))
             circle_group.add(circle)
             all_sprites_list.add(circle)
+
+def RestartLevel():
+    global circle_group, all_sprites_list
+    for circle in circle_group:
+        space.remove(circle.body, circle.shape)
+    circle_group.empty()
+    all_sprites_list.empty()
+    # Reset button states
+    ShopButton.reset()
+    LevelUpButton.reset()
+    MenuButton.reset()
+    # Reset window states
+    shopWindow.visible = False
+    levelUpWindow.visible = False
+    menuWindow.visible = False
+    # reset value
+    currentXP = 0
+    currentLevel = 1
+
+def LevelUp():
+    global currentXP, currentLevel
+    currentXP += 1
+    if currentXP == (currentLevel * 100):
+        currentLevel += 1
+        currentXP = 0
+
 # loop
 all_sprites_list = pygame.sprite.Group()
 shopWindow.visible = False
 levelUpWindow.visible = False
 running = True
+game_paused = False
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -291,12 +463,15 @@ while running:
             screenWidth, screenHeight = event.size
             screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
             changeWindow()
+            if levelUpWindow.visible:
+                levelUpWindow.update_buttons()
         for circle in circle_group:
             circle.handle_event(event)
         # ShopButton,LevelUpButton,menu
         ShopButton.handle_event(event)
         LevelUpButton.handle_event(event)
         MenuButton.handle_event(event)
+        RestartButton.handle_event(event)
         if ShopButton.clicked:
             shopWindow.visible = not shopWindow.visible  
             ShopButton.clicked = False  # Reset the ShopButton click state
@@ -306,8 +481,12 @@ while running:
         if MenuButton.clicked:
             menuWindow.visible = not menuWindow.visible 
             MenuButton.clicked = False
+            game_paused = True
     # man game
     screen.fill(background_colour)
+    xp.update("Level: {} XP: {}".format(currentLevel,currentXP))
+    xp.render(screen)
+    # sprites
     circle_group.update()
     circle_group.draw(screen)
     all_sprites_list.update()
@@ -315,7 +494,18 @@ while running:
     ShopButton.draw(screen)
     LevelUpButton.draw(screen)
     MenuButton.draw(screen)
-    # Drop()
+    # restart game
+    if len(circle_group) >= (screenHeight * screenWidth) / 15:
+        endGame.render(screen)
+        RestartButton.handle_event(event)
+        RestartButton.draw(screen)
+        if RestartButton.clicked:
+            RestartLevel()
+            RestartButton.reset()
+    else:
+        if game_paused == False:
+            Drop()
+            space.step(1/60)
     # windows
     if shopWindow.visible:
         shopWindow.draw()
@@ -330,7 +520,6 @@ while running:
         menuWindow.handle_event(event)
         menuWindow.update()
     # update
-    space.step(1/60)
     pygame.display.update()
     clock.tick(60)
 pygame.quit()

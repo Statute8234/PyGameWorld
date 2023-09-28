@@ -103,6 +103,8 @@ RestartButton = Button((screenHeight / 2),(screenWidth / 2), 100, 40, "Restart",
 # Circle
 currently_dragged_circle = None
 circle_group = pygame.sprite.Group()
+circle_objects = []
+invisible_rect = None
 class Circle(pygame.sprite.Sprite):
     def __init__(self, mass, radius, position=(0, 0)):
         super().__init__()
@@ -134,29 +136,35 @@ class Circle(pygame.sprite.Sprite):
             self.body.velocity = (0, 0)
 
     def handle_event(self, event):
-        global currently_dragged_circle
+        global currently_dragged_circle, invisible_rect
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                # Check if the mouse click is inside the circle
                 if self.rect.collidepoint(event.pos):
                     currently_dragged_circle = self
                     self.dragging = True
                     self.drag_offset = (self.body.position.x - event.pos[0], self.body.position.y - event.pos[1])
             if event.button == 3:
-                global LevelUpRequirerments
-                # Check if the mouse click is inside the circle
                 if self.rect.collidepoint(event.pos):
-                    circle_group.remove(circle)
-                    all_sprites_list.remove(circle)
-                    space.remove(self.body, self.shape)
-                    LevelUp()
-  
+                    rect_width = 2 * self.radius
+                    rect_height = 2 * self.radius
+                    invisible_rect = pygame.Rect(0, 0, rect_width, rect_height)
+                    invisible_rect.center = self.body.position
+                    circles_to_remove = []
+                    for circle in circle_objects:
+                        if circle != self and invisible_rect.colliderect(circle.rect):
+                            space.remove(circle.body, circle.shape)
+                            circle_group.remove(circle)
+                            all_sprites_list.remove(circle)
+                            circles_to_remove.append(circle)
+                    # Update the circle_objects list
+                    for circle in circles_to_remove:
+                        circle_objects.remove(circle)
+                        LevelUp()
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
                 self.dragging = False
         elif event.type == pygame.MOUSEMOTION:
             if self.dragging:
-                # Move the circle with the mouse
                 new_x = event.pos[0] + self.drag_offset[0]
                 new_y = event.pos[1] + self.drag_offset[1]
                 self.body.position = (new_x, new_y)
@@ -603,7 +611,7 @@ while running:
     LevelUpButton.draw(screen)
     MenuButton.draw(screen)
     # restart game
-    if len(circle_group) >= (screenHeight * screenWidth):
+    if len(circle_group) >= 1000:
         endGame.render(screen)
         RestartButton.handle_event(event)
         RestartButton.draw(screen)

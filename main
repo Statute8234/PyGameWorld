@@ -103,6 +103,8 @@ RestartButton = Button((screenHeight / 2),(screenWidth / 2), 100, 40, "Restart",
 # Circle
 currently_dragged_circle = None
 circle_group = pygame.sprite.Group()
+rect_width = 2 * 15
+rect_height = 2 * 15
 class Circle(pygame.sprite.Sprite):
     def __init__(self, mass, radius, position=(0, 0)):
         super().__init__()
@@ -134,7 +136,7 @@ class Circle(pygame.sprite.Sprite):
             self.body.velocity = (0, 0)
 
     def handle_event(self, event):
-        global currently_dragged_circle
+        global currently_dragged_circle, rect_height, rect_width
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 # Check if the mouse click is inside the circle
@@ -145,8 +147,6 @@ class Circle(pygame.sprite.Sprite):
             if event.button == 3:
                 # Check if the mouse click is inside the circle
                 if self.rect.collidepoint(event.pos):
-                    rect_width = 2 * self.radius
-                    rect_height = 2 * self.radius
                     invisible_rect = pygame.Rect(0, 0, rect_width, rect_height)
                     invisible_rect.center = self.body.position
                     circles_to_remove = []
@@ -185,6 +185,10 @@ class ShopWindow:
         self.selected_button = None
         self.BackgroundColor = WHITE
         self.sound_effect_playing = False
+        # prices
+        self.BACKGROUND_COLOR_PRICE = 10
+        self.WINDOW_BACKGROUND_COLOR_PRICE = 20
+        self.TEXT_COLOR_PRICE = 5
         # error
         self.NotEnoughMoney = Text("sorry, you don't have enough XP", 36, TextColor, ((screenWidth / 2) - 200,100))
         # store buttons
@@ -214,6 +218,9 @@ class ShopWindow:
             Items = Button(10 + (x * 110), 400, 100, 40,item_name, RED, color)
             self.styleList.append(color)
             self.buttonList.append(Items)
+        # sound
+        self.storeWindow_open_sound = pygame.mixer.Sound(r"516704__matrixxx__a-zombie-trying-to-grab-you.mp3")
+        self.storeWindow_open_sound_played = False
 
     def update(self):
         global screenHeight, screenWidth
@@ -223,13 +230,17 @@ class ShopWindow:
         self.CloseShopButton.x = self.x + self.width - 42
         self.CloseShopButton.y = self.y + 2
     
+    def play_sound_effect(self, filename):
+        # Play a sound effect for an affordable action
+        affordable_sound = pygame.mixer.Sound(filename)
+        affordable_sound.set_volume(soundEffect_volume)
+        affordable_sound.play()
+                
     def NotEnoughMoneyMessage(self):
         global soundEffect_volume
         if self.not_enough_money_timer > 0:
             self.not_enough_money_timer -= 1
             self.NotEnoughMoney.render(screen)
-            print("Playing error sound...")
-            self.makeSound(r"527491__hipstertypist__error-sound.mp3")
                 
     def draw(self):
         global currentXP
@@ -249,47 +260,42 @@ class ShopWindow:
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
 
-    def makeSound(self, fileName, is_background_music=False):
-        if is_background_music:
-            pygame.mixer.music.load(fileName)
-            pygame.mixer.music.set_volume(soundEffect_volume)
-            pygame.mixer.music.play(-1)
-        else:
-            if not self.sound_effect_playing:  # Check if a sound effect is not currently playing
-                sound_effect = pygame.mixer.Sound(fileName)
-                sound_effect.set_volume(soundEffect_volume)
-                sound_effect.play()
-                self.sound_effect_playing = True
+            if not self.storeWindow_open_sound_played:
+                self.storeWindow_open_sound.play()
+                self.storeWindow_open_sound_played = True
 
     def handle_event(self, event):
         global background_colour, currentXP, shopWindow, menuWindow, levelUpWindow, TextColor, endGame, xp
         if self.visible:
-            self.makeSound(r"516704__matrixxx__a-zombie-trying-to-grab-you.mp3")
             self.CloseShopButton.handle_event(event)
             if self.CloseShopButton.clicked:
                 self.visible = False
                 self.CloseShopButton.clicked = False
                 self.selected_button = None
+                self.storeWindow_open_sound_played = False
             # change theme
             for Item in self.buttonList:
                 Item.handle_event(event)
                 if Item.clicked:
                     self.selected_button = Item
                     selected_index = self.buttonList.index(self.selected_button)
-                    self.makeSound(r"580119__annyew__arcade-button.mp3")
                     # Check the stored position information
                     if self.selected_button.y == 200 and currentXP >= 10:
                         background_colour = self.styleList[selected_index]
                         currentXP -= 10
+                        self.play_sound_effect(r"320654__rhodesmas__level-up-02.mp3")
                     elif self.selected_button.y == 200 and currentXP < 10:
                         self.not_enough_money_timer = 100
+                        self.play_sound_effect(r"527491__hipstertypist__error-sound.mp3")
                     elif self.selected_button.y == 300 and currentXP >= 20:
                         shopWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
                         menuWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
                         levelUpWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
                         currentXP -= 20
+                        self.play_sound_effect(r"320654__rhodesmas__level-up-02.mp3")
                     elif self.selected_button.y == 300 and currentXP < 20:
                         self.not_enough_money_timer = 100
+                        self.play_sound_effect(r"527491__hipstertypist__error-sound.mp3")
                     elif self.selected_button.y == 400 and currentXP >= 5:
                         TextColor = self.styleList[self.buttonList.index(Item)]
                         endGame.color = TextColor
@@ -303,51 +309,49 @@ class ShopWindow:
                         self.ColorText.color = TextColor
                         # Modify the text elements within levelUpWindow
                         levelUpWindow.row.color = TextColor
-                        levelUpWindow.column.color = TextColor
                         # Modify the text elements within menuWindow
                         menuWindow.sound.color = TextColor
-                        menuWindow.soundEffects.color = TextColor
-                        menuWindow.frameRate.color = TextColor
+                        menuWindow.sound_effects.color = TextColor
+                        menuWindow.frame_rate.color = TextColor
                         currentXP -= 5
+                        self.play_sound_effect(r"320654__rhodesmas__level-up-02.mp3")
                     elif self.selected_button.y == 400 and currentXP < 5:
                         self.not_enough_money_timer = 100
+                        self.play_sound_effect(r"527491__hipstertypist__error-sound.mp3")
                     self.selected_button.clicked = False
 shopWindow = ShopWindow(screenHeight, screenWidth, position=(0, 0))
 # Level up
 class LevelUpWindow:
     def __init__(self, width, height, position=(0, 0)):
-        global screenHeight, screenWidth
         self.width = width
         self.height = height
         self.x, self.y = position[0], position[1]
         self.visible = False
-        self.CloseLevelUpButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)  # Rename the button
+        self.CloseLevelUpButton = Button(self.x + 2, self.y + 2, 40, 40, "X", RED, RED)
         self.text = "Level up   {} Levels"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
         self.BackgroundColor = WHITE
         self.sound_effect_playing = False
-        # error
-        self.NotEnoughLevels = Text("sorry, you don't have enough Levels", 36, TextColor, ((screenWidth / 2) - 200,100))
-        # Create separate button lists for rows and columns
+        self.level_cost = 3   # Levels needed per button increase
+        # Store current_level as an instance variable
+        self.NotEnoughLevels = Text("Sorry, you don't have enough Levels", 36, TextColor, ((screenWidth / 2) - 200, 100))
         self.rowButtonList = []
-        self.columnButtonList = []
-        # row
-        self.row = Text("How big would you like the row to be? 3 Levels per button", 36, TextColor, (10,160))
-        self.create_buttons(200, self.rowButtonList)
-        # column
-        self.column = Text("How big would you like the column to be? 6 Levels per button", 34, TextColor, (10,265))
-        self.create_buttons(300, self.columnButtonList)
+        self.row = Text("How big would you like the row to be? 3 Levels per button", 36, TextColor, (10, 160))
+        self.create_level_buttons(200, self.rowButtonList) 
 
-    def create_buttons(self, y, button_list):
+        self.levelWindow_open_sound = pygame.mixer.Sound(r"516704__matrixxx__a-zombie-trying-to-grab-you.mp3")
+        self.levelWindow_open_sound_played = False
+
+    def create_level_buttons(self, y, button_list):
         button_width = 100
         button_spacing = 10
         available_width = screenWidth - 20  # Subtracting 20 for left and right margin
         num_buttons = available_width // (button_width + button_spacing)
-        
+
         for x in range(num_buttons):
             button_x = 10 + x * (button_width + button_spacing)
-            label = str(100 + x * 100)
+            label = str(x * self.level_cost)
             Items = Button(button_x, y, button_width, 40, label, RED, GREEN)
             button_list.append(Items)
 
@@ -355,82 +359,61 @@ class LevelUpWindow:
         global screenHeight, screenWidth
         self.width = screenWidth
         self.height = screenHeight
-        # Update the position of the close button
         self.CloseLevelUpButton.x = self.x + self.width - 42
         self.CloseLevelUpButton.y = self.y + 2
+
+    def NotEnoughMoneyMessage(self):
+        global soundEffect_volume
+        if self.not_enough_money_timer > 0:
+            self.not_enough_money_timer -= 1
+            self.NotEnoughLevels.render(screen)
 
     def draw(self):
         if self.visible:
             pygame.draw.rect(screen, self.BackgroundColor, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
             pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
-            self.CloseLevelUpButton.draw(screen)  # Use the new button
-            self.row.render(screen)
-            self.column.render(screen)
+            self.CloseLevelUpButton.draw(screen)
             text_surface = self.font.render(self.text.format(currentLevel), True, TextColor)
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
-            # draw buttons for rows
+            # draw buttons for levels
             for Item in self.rowButtonList:
                 Item.draw(screen)
-            # draw buttons for columns
-            for Item in self.columnButtonList:
-                Item.draw(screen)
 
-    def NotEnoughMoneyMessage(self, is_background_music=False):
-        global soundEffect_volume
-        if self.not_enough_money_timer > 0:
-            self.not_enough_money_timer -= 1
-            self.NotEnoughMoney.render(screen)
-            # sound
-            SoundEffectPath = r"527491__hipstertypist__error-sound.mp3"
-            if is_background_music:
-                pygame.mixer.music.load(SoundEffectPath)
-                pygame.mixer.music.set_volume(soundEffect_volume)
-                pygame.mixer.music.play(-1)
-            else:
-                sound_effect = pygame.mixer.Sound(SoundEffectPath)
-                sound_effect.set_volume(soundEffect_volume)
-                sound_effect.play()
+            if not self.levelWindow_open_sound_played:
+                self.levelWindow_open_sound.play()
+                self.levelWindow_open_sound_played = True
+                self.sound_effect_playing = True 
 
-    def makeSound(self, is_background_music=False):
-        global soundEffect_volume
-        SoundEffectPath = r"320654__rhodesmas__level-up-02.mp3"
-        
-        if is_background_music:
-            pygame.mixer.music.load(SoundEffectPath)
-            pygame.mixer.music.set_volume(soundEffect_volume)
-            pygame.mixer.music.play(-1)
-        else:
-            if not self.sound_effect_playing:  # Check if a sound effect is not currently playing
-                sound_effect = pygame.mixer.Sound(SoundEffectPath)
-                sound_effect.set_volume(soundEffect_volume)
-                sound_effect.play()
-                self.sound_effect_playing = True
+    def play_sound_effect(self, filename):
+        # Play a sound effect for an affordable action
+        affordable_sound = pygame.mixer.Sound(filename)
+        affordable_sound.set_volume(soundEffect_volume)
+        affordable_sound.play()
 
     def handle_event(self, event):
+        global currentLevel
         if self.visible:
             self.CloseLevelUpButton.handle_event(event)
             if self.CloseLevelUpButton.clicked:
                 self.visible = False
                 self.CloseLevelUpButton.clicked = False
-            # row
+                self.levelWindow_open_sound_played = False
+            # levels
             for Item in self.rowButtonList:
                 Item.handle_event(event)
                 if Item.clicked:
                     self.selected_button = Item
                     selected_index = self.rowButtonList.index(self.selected_button)
-                    self.makeSound()
-                    if self.selected_button.y == 200 and currentXP < 10:
+                    required_levels = selected_index * self.level_cost
+                    if currentLevel >= required_levels:
+                        currentLevel -= required_levels
+                        self.play_sound_effect("320654__rhodesmas__level-up-02.mp3")  # Use the level-up sound effect
+                        self.CloseLevelUpButton.clicked = True  # Close the window after purchase
+                    else:
                         self.not_enough_money_timer = 100
-            # column
-            for Item in self.columnButtonList:
-                Item.handle_event(event)
-                if Item.clicked:
-                    self.makeSound()
-                    self.selected_button = Item
-                    selected_index = self.columnButtonList.index(self.selected_button)
-                    if self.selected_button.y == 300 and currentXP < 20:
-                        self.not_enough_money_timer = 100
+                        self.play_sound_effect(r"527491__hipstertypist__error-sound.mp3")
+                        self.CloseLevelUpButton.clicked = False
 levelUpWindow = LevelUpWindow(screenHeight, screenWidth, (0, 0))
 #menu
 class MenuWindow:
@@ -461,6 +444,9 @@ class MenuWindow:
         self.frame_rate_slider = Slider(screen, 10, 400, 128, 10, min=1, max=64, step=1, initial=100)
         self.frame_rate_output = TextBox(screen, 148, 370, 50, 50, fontSize=30)
         self.frame_rate_output.disable()
+        # sound
+        self.menu_open_sound = pygame.mixer.Sound(r"516704__matrixxx__a-zombie-trying-to-grab-you.mp3")
+        self.menu_open_sound_played = False
 
     def update(self):
         global screenHeight, screenWidth
@@ -486,6 +472,10 @@ class MenuWindow:
             text_surface = self.font.render(self.title, True, TextColor)
             text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
             screen.blit(text_surface, text_rect)
+
+            if not self.menu_open_sound_played:
+                self.menu_open_sound.play()
+                self.menu_open_sound_played = True
             
     def handle_event(self, event):
         global game_paused, frameRate, Background_volume, soundEffect_volume
@@ -501,6 +491,7 @@ class MenuWindow:
                 mixer.music.set_volume(Background_volume)
                 soundEffect_volume = self.sound_slider.getValue()
                 frameRate = self.frame_rate_slider.getValue()
+                self.menu_open_sound_played = False
 menuWindow = MenuWindow(screenHeight, screenWidth, (0, 0))
 # drop
 time = 0
@@ -529,7 +520,7 @@ def RestartLevel():
     menuWindow.visible = False
     # return defult
     shopWindow.BackgroundColor = WHITE
-    menuWindow.BackgroundColor = WHITE
+    menuWindow.background_color = WHITE
     levelUpWindow.BackgroundColor = WHITE
     background_colour = WHITE
     # text
@@ -545,11 +536,10 @@ def RestartLevel():
     shopWindow.ColorText.color = TextColor
     # Modify the text elements within levelUpWindow
     levelUpWindow.row.color = TextColor
-    levelUpWindow.column.color = TextColor
     # Modify the text elements within menuWindow
     menuWindow.sound.color = TextColor
-    menuWindow.soundEffects.color = TextColor
-    menuWindow.frameRate.color = TextColor
+    menuWindow.sound_effects.color = TextColor
+    menuWindow.frame_rate.color = TextColor
     # reset value
     currentXP = 0
     currentLevel = 1
@@ -579,7 +569,6 @@ while running:
         if event.type == pygame.QUIT:
             running = False
             sys.exit()
-        # resize window
         elif event.type == pygame.VIDEORESIZE:
             screenWidth, screenHeight = event.size
             screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
@@ -597,8 +586,8 @@ while running:
             shopWindow.visible = not shopWindow.visible  
             ShopButton.clicked = False  # Reset the ShopButton click state
         if LevelUpButton.clicked:
-            levelUpWindow.visible = not levelUpWindow.visible 
-            LevelUpButton.clicked = False  # Reset the LevelUpButton click state
+            levelUpWindow.visible = not levelUpWindow.visible
+            LevelUpButton.clicked = False
         if MenuButton.clicked:
             menuWindow.visible = not menuWindow.visible 
             MenuButton.clicked = False
@@ -633,8 +622,8 @@ while running:
         shopWindow.handle_event(event)
         shopWindow.update()
     if levelUpWindow.visible:
-        levelUpWindow.draw()
         levelUpWindow.handle_event(event)
+        levelUpWindow.draw()
         levelUpWindow.update()
     if menuWindow.visible:
         menuWindow.draw()

@@ -184,18 +184,17 @@ class ShopWindow:
         self.not_enough_money_timer = 0
         self.selected_button = None
         self.BackgroundColor = WHITE
-        self.sound_effect_playing = False
         # prices
-        self.BACKGROUND_COLOR_PRICE = 10
-        self.WINDOW_BACKGROUND_COLOR_PRICE = 20
-        self.TEXT_COLOR_PRICE = 5
+        self.BACKGROUND_COLOR_PRICE = 25
+        self.WINDOW_BACKGROUND_COLOR_PRICE = 50
+        self.TEXT_COLOR_PRICE = 10
         # error
         self.NotEnoughMoney = Text("sorry, you don't have enough XP", 36, TextColor, ((screenWidth / 2) - 200,100))
         # store buttons
         self.styleList = []
         self.buttonList = []
         # change background color
-        self.Background = Text("What background color would you like? 10xp", 36, TextColor, (10,160))
+        self.Background = Text("What background color would you like? 25xp", 36, TextColor, (10,160))
         for x in range(6):
             color = (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255))
             item_name = "{}".format(color)
@@ -203,7 +202,7 @@ class ShopWindow:
             self.styleList.append(color)
             self.buttonList.append(Items)
         # change window background
-        self.WindowBackground = Text("What window background color would you like? 20xp", 36, TextColor, (10,265))
+        self.WindowBackground = Text("What window background color would you like? 50xp", 36, TextColor, (10,265))
         for x in range(6):
             color = (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255))
             item_name = "{}".format(color)
@@ -211,7 +210,7 @@ class ShopWindow:
             self.styleList.append(color)
             self.buttonList.append(Items)
         # change text colors
-        self.ColorText = Text("What color text would you like? 5xp", 36, TextColor, (10,365))
+        self.ColorText = Text("What color text would you like? 10xp", 36, TextColor, (10,365))
         for x in range(6):
             color = (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255))
             item_name = "{}".format(color)
@@ -231,9 +230,10 @@ class ShopWindow:
         self.CloseShopButton.y = self.y + 2
     
     def play_sound_effect(self, filename):
+        global soundEffect_volume
         # Play a sound effect for an affordable action
         affordable_sound = pygame.mixer.Sound(filename)
-        affordable_sound.set_volume(soundEffect_volume)
+        affordable_sound.set_volume(soundEffect_volume)  # Set the volume here
         affordable_sound.play()
                 
     def NotEnoughMoneyMessage(self):
@@ -280,23 +280,23 @@ class ShopWindow:
                     self.selected_button = Item
                     selected_index = self.buttonList.index(self.selected_button)
                     # Check the stored position information
-                    if self.selected_button.y == 200 and currentXP >= 10:
+                    if self.selected_button.y == 200 and currentXP >= self.BACKGROUND_COLOR_PRICE:
                         background_colour = self.styleList[selected_index]
-                        currentXP -= 10
+                        currentXP -= self.BACKGROUND_COLOR_PRICE
                         self.play_sound_effect(r"320654__rhodesmas__level-up-02.mp3")
-                    elif self.selected_button.y == 200 and currentXP < 10:
+                    elif self.selected_button.y == 200 and currentXP < self.BACKGROUND_COLOR_PRICE:
                         self.not_enough_money_timer = 100
                         self.play_sound_effect(r"527491__hipstertypist__error-sound.mp3")
-                    elif self.selected_button.y == 300 and currentXP >= 20:
+                    elif self.selected_button.y == 300 and currentXP >= self.WINDOW_BACKGROUND_COLOR_PRICE:
                         shopWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
-                        menuWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
+                        menuWindow.background_color = self.styleList[self.buttonList.index(Item)]
                         levelUpWindow.BackgroundColor = self.styleList[self.buttonList.index(Item)]
-                        currentXP -= 20
+                        currentXP -= self.WINDOW_BACKGROUND_COLOR_PRICE
                         self.play_sound_effect(r"320654__rhodesmas__level-up-02.mp3")
-                    elif self.selected_button.y == 300 and currentXP < 20:
+                    elif self.selected_button.y == 300 and currentXP < self.WINDOW_BACKGROUND_COLOR_PRICE:
                         self.not_enough_money_timer = 100
                         self.play_sound_effect(r"527491__hipstertypist__error-sound.mp3")
-                    elif self.selected_button.y == 400 and currentXP >= 5:
+                    elif self.selected_button.y == 400 and currentXP >= self.TEXT_COLOR_PRICE:
                         TextColor = self.styleList[self.buttonList.index(Item)]
                         endGame.color = TextColor
                         xp.color = TextColor
@@ -315,7 +315,7 @@ class ShopWindow:
                         menuWindow.frame_rate.color = TextColor
                         currentXP -= 5
                         self.play_sound_effect(r"320654__rhodesmas__level-up-02.mp3")
-                    elif self.selected_button.y == 400 and currentXP < 5:
+                    elif self.selected_button.y == 400 and currentXP < self.TEXT_COLOR_PRICE:
                         self.not_enough_money_timer = 100
                         self.play_sound_effect(r"527491__hipstertypist__error-sound.mp3")
                     self.selected_button.clicked = False
@@ -331,29 +331,22 @@ class LevelUpWindow:
         self.text = "Level up   {} Levels"
         self.font_size = min(self.width // len(self.text), self.height // 10)
         self.font = pygame.font.Font(None, self.font_size)
+        self.not_enough_money_timer = 0
+        self.selected_button = None
         self.BackgroundColor = WHITE
-        self.sound_effect_playing = False
-        self.level_cost = 3   # Levels needed per button increase
-        # Store current_level as an instance variable
+        self.sound_effect_played = False
+        self.level_cost = 6   # Levels needed per button increase
         self.NotEnoughLevels = Text("Sorry, you don't have enough Levels", 36, TextColor, ((screenWidth / 2) - 200, 100))
         self.rowButtonList = []
-        self.row = Text("How big would you like the row to be? 3 Levels per button", 36, TextColor, (10, 160))
-        self.create_level_buttons(200, self.rowButtonList) 
-
+        self.row = Text("How big would you like the row to be? 6 Levels per button", 36, TextColor, (10, 160))
+        # create buttons
+        for x in range(6):
+            label = str(6 + x * self.level_cost)
+            Items = Button(10 + (x * 110), 200, 100, 40,label, RED, GREEN)
+            self.rowButtonList.append(Items)
+        # sound
         self.levelWindow_open_sound = pygame.mixer.Sound(r"516704__matrixxx__a-zombie-trying-to-grab-you.mp3")
         self.levelWindow_open_sound_played = False
-
-    def create_level_buttons(self, y, button_list):
-        button_width = 100
-        button_spacing = 10
-        available_width = screenWidth - 20  # Subtracting 20 for left and right margin
-        num_buttons = available_width // (button_width + button_spacing)
-
-        for x in range(num_buttons):
-            button_x = 10 + x * (button_width + button_spacing)
-            label = str(x * self.level_cost)
-            Items = Button(button_x, y, button_width, 40, label, RED, GREEN)
-            button_list.append(Items)
 
     def update(self):
         global screenHeight, screenWidth
@@ -362,6 +355,13 @@ class LevelUpWindow:
         self.CloseLevelUpButton.x = self.x + self.width - 42
         self.CloseLevelUpButton.y = self.y + 2
 
+    def play_sound_effect(self, filename):
+        global soundEffect_volume
+        # Play a sound effect for an affordable action
+        affordable_sound = pygame.mixer.Sound(filename)
+        affordable_sound.set_volume(soundEffect_volume)  # Set the volume here
+        affordable_sound.play()
+
     def NotEnoughMoneyMessage(self):
         global soundEffect_volume
         if self.not_enough_money_timer > 0:
@@ -369,27 +369,23 @@ class LevelUpWindow:
             self.NotEnoughLevels.render(screen)
 
     def draw(self):
+        global currentLevel
         if self.visible:
             pygame.draw.rect(screen, self.BackgroundColor, (self.x - 2, self.y - 2, self.width + 4, self.height + 4))
             pygame.draw.rect(screen, RED, (self.x, self.y, self.width, self.height), 2)
             self.CloseLevelUpButton.draw(screen)
-            text_surface = self.font.render(self.text.format(currentLevel), True, TextColor)
-            text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
-            screen.blit(text_surface, text_rect)
             # draw buttons for levels
             for Item in self.rowButtonList:
                 Item.draw(screen)
 
+            self.NotEnoughMoneyMessage()
+            text_surface = self.font.render(self.text.format(currentLevel), True, TextColor)
+            text_rect = text_surface.get_rect(center=(self.x + self.width // 2, self.y + self.height // 10))
+            screen.blit(text_surface, text_rect)
+
             if not self.levelWindow_open_sound_played:
                 self.levelWindow_open_sound.play()
                 self.levelWindow_open_sound_played = True
-                self.sound_effect_playing = True 
-
-    def play_sound_effect(self, filename):
-        # Play a sound effect for an affordable action
-        affordable_sound = pygame.mixer.Sound(filename)
-        affordable_sound.set_volume(soundEffect_volume)
-        affordable_sound.play()
 
     def handle_event(self, event):
         global currentLevel
@@ -405,15 +401,13 @@ class LevelUpWindow:
                 if Item.clicked:
                     self.selected_button = Item
                     selected_index = self.rowButtonList.index(self.selected_button)
-                    required_levels = selected_index * self.level_cost
-                    if currentLevel >= required_levels:
-                        currentLevel -= required_levels
-                        self.play_sound_effect("320654__rhodesmas__level-up-02.mp3")  # Use the level-up sound effect
-                        self.CloseLevelUpButton.clicked = True  # Close the window after purchase
+                    if currentLevel >= 10:
+                        currentLevel -= 10
+                        self.play_sound_effect(r"320654__rhodesmas__level-up-02.mp3")
                     else:
                         self.not_enough_money_timer = 100
                         self.play_sound_effect(r"527491__hipstertypist__error-sound.mp3")
-                        self.CloseLevelUpButton.clicked = False
+                    Item.clicked = False
 levelUpWindow = LevelUpWindow(screenHeight, screenWidth, (0, 0))
 #menu
 class MenuWindow:
@@ -488,8 +482,9 @@ class MenuWindow:
                 self.close_button.clicked = False
                 game_paused = False
                 Background_volume = self.sound_slider.getValue()
-                mixer.music.set_volume(Background_volume)
-                soundEffect_volume = self.sound_slider.getValue()
+                BackgroundMusic.set_volume(Background_volume)
+                game_over_music.set_volume(Background_volume)
+                soundEffect_volume = self.sound_effects_slider.getValue()  # Update sound effect volume here
                 frameRate = self.frame_rate_slider.getValue()
                 self.menu_open_sound_played = False
 menuWindow = MenuWindow(screenHeight, screenWidth, (0, 0))
@@ -503,7 +498,16 @@ def Drop():
             circle = Circle(1, 15,(random.randint(0,screenWidth),15))
             circle_group.add(circle)
             all_sprites_list.add(circle)
-
+# game over
+gameOver_soundEffect_Played = False
+def play_game_over_sound_effect():
+    global soundEffect_volume,gameOver_soundEffect_Played
+    if not gameOver_soundEffect_Played:
+        game_over_sound = pygame.mixer.Sound(r"162465__kastenfrosch__lostitem.mp3")  # Replace "game_over_sound.wav" with your sound file
+        game_over_sound.set_volume(soundEffect_volume)
+        game_over_sound.play()
+        gameOver_soundEffect_Played = True
+# restart
 def RestartLevel():
     global circle_group, all_sprites_list, currentXP, currentLevel, background_colour, TextColor
     for circle in circle_group:
@@ -561,9 +565,17 @@ game_paused = False
 frameRate = 64
 Background_volume = 1.0
 soundEffect_volume = 1.0
+
+game_play_music_playing = False
 BackgroundMusicPath = "ambient-piano-ampamp-strings-10711.mp3"
-mixer.music.load(BackgroundMusicPath)
-mixer.music.play(-1)
+BackgroundMusic = pygame.mixer.Sound(BackgroundMusicPath)
+BackgroundMusic.set_volume(Background_volume)
+# game lost
+game_over_music_playing = False
+game_over_music_path = r"lost-ambient-lofi-sad-background-music-5802.mp3"
+game_over_music = pygame.mixer.Sound(game_over_music_path)
+game_over_music.set_volume(Background_volume)
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -604,7 +616,15 @@ while running:
     LevelUpButton.draw(screen)
     MenuButton.draw(screen)
     # restart game
-    if len(circle_group) >= 1000:
+    if len(circle_group) >= 1:
+        if not game_over_music_playing:
+            game_over_music.play(-1)
+            game_over_music_playing = True
+            # Stop default background music
+            BackgroundMusic.stop()
+            game_play_music_playing = False
+
+        play_game_over_sound_effect()
         endGame.render(screen)
         RestartButton.handle_event(event)
         RestartButton.draw(screen)
@@ -612,7 +632,17 @@ while running:
             RestartLevel()
             RestartButton.reset()
     else:
+        if game_over_music_playing:
+            game_over_music.stop()
+            game_over_music_playing = False
+        
+        if not game_play_music_playing:
+            BackgroundMusic.play(-1)
+            game_play_music_playing = True
+        
         if game_paused == False:
+            game_over_music.stop()
+            game_over_music_playing = False
             Drop()
             space.step(1/60)
     xp.render(screen)

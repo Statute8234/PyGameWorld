@@ -77,6 +77,10 @@ class Button:
         self.font = pygame.font.Font(None, self.font_size)
         self.clicked = False
 
+    def update_position(self, screenWidth, screenHeight):
+        self.x = screenWidth // 2 - self.width // 2
+        self.y = screenHeight // 2 - self.height // 2
+
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
         text_surface = self.font.render(self.text, True, BLACK)
@@ -496,7 +500,7 @@ def Drop():
     time += 1
     if time % 100 == 0:
         for item in range(int(random.triangular(1,10,3))):
-            circle = Circle(1, 15,(random.randint(0,screenWidth),15))
+            circle = Circle(1, 15,(random.randint(0,screenWidth),16))
             circle_group.add(circle)
             all_sprites_list.add(circle)
 # game over
@@ -549,13 +553,20 @@ def RestartLevel():
     currentXP = 0
     currentLevel = 1
 
+def restart_game():
+    global game_over_music_playing, game_play_music_playing
+    RestartLevel()
+    game_over_music.stop()
+    game_over_music_playing = False
+    BackgroundMusic.play(-1)
+    game_play_music_playing = True
+#level up
 def LevelUp():
     global currentXP, currentLevel
     currentXP += 1
     if currentXP == (currentLevel * 100):
         currentLevel += 1
         currentXP = 0
-
 # loop
 all_sprites_list = pygame.sprite.Group()
 shopWindow.visible = False
@@ -586,8 +597,8 @@ while running:
             screenWidth, screenHeight = event.size
             screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
             changeWindow(screenWidth, screenHeight)
-            if levelUpWindow.visible:
-                levelUpWindow.update_buttons()
+            menuWindow.message.position = ((screenWidth / 2) - 300,100)
+            RestartButton.update_position(screenWidth, screenHeight)
         for circle in circle_group:
             circle.handle_event(event)
         # ShopButton,LevelUpButton,menu
@@ -617,11 +628,16 @@ while running:
     LevelUpButton.draw(screen)
     MenuButton.draw(screen)
     # restart game
-    if len(circle_group) >= 1000:
+    # Handle restart logic
+    restart_required = False
+    for circle in circle_group:
+        if len(circle_group) >= 1000 or (not circle.dragging and circle.body.position[1] - circle.radius <= 0):
+            restart_required = True
+            break
+    if restart_required:
         if not game_over_music_playing:
             game_over_music.play(-1)
             game_over_music_playing = True
-            # Stop default background music
             BackgroundMusic.stop()
             game_play_music_playing = False
 
@@ -630,18 +646,18 @@ while running:
         RestartButton.handle_event(event)
         RestartButton.draw(screen)
         if RestartButton.clicked:
-            RestartLevel()
+            restart_game()
             RestartButton.reset()
     else:
         if game_over_music_playing:
             game_over_music.stop()
             game_over_music_playing = False
-        
+
         if not game_play_music_playing:
             BackgroundMusic.play(-1)
             game_play_music_playing = True
-        
-        if game_paused == False:
+
+        if not game_paused:
             game_over_music.stop()
             game_over_music_playing = False
             Drop()

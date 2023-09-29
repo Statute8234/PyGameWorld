@@ -10,24 +10,25 @@ pygame.init()
 # pygame screen
 screenWidth, screenHeight = 700, 700
 screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
+pygame.display.set_caption("Color Run Down ")
 # gravity
 space = pymunk.Space()
 space.gravity = (0, 1000)
+
 # window
-def changeWindow():
-    screen_info = pygame.display.Info()
-    screenHeight = screen_info.current_w
-    screenHeight = screen_info.current_h
+def changeWindow(screenWidth, screenHeight):
     window_left = pymunk.Segment(space.static_body, (0, 0), (0, screenHeight), 2)
-    window_right = pymunk.Segment(space.static_body, (screenHeight, 0), (screenHeight, screenHeight), 2)
-    window_bottom = pymunk.Segment(space.static_body, (0, screenHeight), (screenHeight, screenHeight), 2)
+    window_right = pymunk.Segment(space.static_body, (screenWidth, 0), (screenWidth, screenHeight), 2)
+    window_bottom = pymunk.Segment(space.static_body, (0, screenHeight), (screenWidth, screenHeight), 2)
+    space.add(window_left, window_right, window_bottom)
     # Remove existing segments (if any)
     for shape in space.shapes:
         if isinstance(shape, pymunk.Segment):
             space.remove(shape)
     # Add the new segments
     space.add(window_left, window_right, window_bottom)
-changeWindow()
+# Call changeWindow() with the initial screen dimensions
+changeWindow(screenWidth, screenHeight)
 # colors
 TextColor = (0, 0, 0)
 BLACK = (0,0,0)
@@ -584,7 +585,7 @@ while running:
         elif event.type == pygame.VIDEORESIZE:
             screenWidth, screenHeight = event.size
             screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
-            changeWindow()
+            changeWindow(screenWidth, screenHeight)
             if levelUpWindow.visible:
                 levelUpWindow.update_buttons()
         for circle in circle_group:
@@ -616,7 +617,7 @@ while running:
     LevelUpButton.draw(screen)
     MenuButton.draw(screen)
     # restart game
-    if len(circle_group) >= 1:
+    if len(circle_group) >= 1000:
         if not game_over_music_playing:
             game_over_music.play(-1)
             game_over_music_playing = True

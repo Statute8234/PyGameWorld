@@ -1,10 +1,11 @@
 import pygame.sprite
 import pygame
-import random, time, pymunk, sys, math
+import random, time, pymunk, sys
 import pygame_widgets
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
 from pygame import mixer
+import asyncio
 mixer.init()
 pygame.init()
 # pygame screen
@@ -567,7 +568,8 @@ def LevelUp():
     if currentXP == (currentLevel * 100):
         currentLevel += 1
         currentXP = 0
-# loop
+
+ # loop
 all_sprites_list = pygame.sprite.Group()
 shopWindow.visible = False
 levelUpWindow.visible = False
@@ -588,96 +590,110 @@ game_over_music_path = r"lost-ambient-lofi-sad-background-music-5802.mp3"
 game_over_music = pygame.mixer.Sound(game_over_music_path)
 game_over_music.set_volume(Background_volume)
 
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-            sys.exit()
-        elif event.type == pygame.VIDEORESIZE:
-            screenWidth, screenHeight = event.size
-            screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
-            changeWindow(screenWidth, screenHeight)
-            menuWindow.message.position = ((screenWidth / 2) - 300,100)
-            RestartButton.update_position(screenWidth, screenHeight)
+async def my_async_function():
+    while True:
+        # Your asynchronous code here
+        print("Async code running...")
+        await asyncio.sleep(1) 
+
+COUNT_DOWN 
+async def main():
+    global running, screen, game_over_music, game_over_music_playing, game_play_music_playing, game_paused, screenWidth, screenWidth
+    asyncio.create_task(my_async_function())
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                sys.exit()
+            elif event.type == pygame.VIDEORESIZE:
+                screenWidth, screenHeight = event.size
+                screen = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
+                changeWindow(screenWidth, screenHeight)
+                menuWindow.message.position = ((screenWidth / 2) - 300,100)
+                RestartButton.update_position(screenWidth, screenHeight)
+            for circle in circle_group:
+                circle.handle_event(event)
+            # ShopButton,LevelUpButton,menu
+            ShopButton.handle_event(event)
+            LevelUpButton.handle_event(event)
+            MenuButton.handle_event(event)
+            RestartButton.handle_event(event)
+            if ShopButton.clicked:
+                shopWindow.visible = not shopWindow.visible  
+                ShopButton.clicked = False  # Reset the ShopButton click state
+            if LevelUpButton.clicked:
+                levelUpWindow.visible = not levelUpWindow.visible
+                LevelUpButton.clicked = False
+            if MenuButton.clicked:
+                menuWindow.visible = not menuWindow.visible 
+                MenuButton.clicked = False
+                game_paused = True
+        # man game
+        screen.fill(background_colour)
+        xp.update("Level: {} XP: {}".format(currentLevel,currentXP))
+        # sprites
+        circle_group.update()
+        circle_group.draw(screen)
+        all_sprites_list.update()
+        all_sprites_list.draw(screen)
+        ShopButton.draw(screen)
+        LevelUpButton.draw(screen)
+        MenuButton.draw(screen)
+        # restart game
+        # Handle restart logic
+        restart_required = False
         for circle in circle_group:
-            circle.handle_event(event)
-        # ShopButton,LevelUpButton,menu
-        ShopButton.handle_event(event)
-        LevelUpButton.handle_event(event)
-        MenuButton.handle_event(event)
-        RestartButton.handle_event(event)
-        if ShopButton.clicked:
-            shopWindow.visible = not shopWindow.visible  
-            ShopButton.clicked = False  # Reset the ShopButton click state
-        if LevelUpButton.clicked:
-            levelUpWindow.visible = not levelUpWindow.visible
-            LevelUpButton.clicked = False
-        if MenuButton.clicked:
-            menuWindow.visible = not menuWindow.visible 
-            MenuButton.clicked = False
-            game_paused = True
-    # man game
-    screen.fill(background_colour)
-    xp.update("Level: {} XP: {}".format(currentLevel,currentXP))
-    # sprites
-    circle_group.update()
-    circle_group.draw(screen)
-    all_sprites_list.update()
-    all_sprites_list.draw(screen)
-    ShopButton.draw(screen)
-    LevelUpButton.draw(screen)
-    MenuButton.draw(screen)
-    # restart game
-    # Handle restart logic
-    restart_required = False
-    for circle in circle_group:
-        if len(circle_group) >= 1000 or (not circle.dragging and circle.body.position[1] - circle.radius <= 0):
-            restart_required = True
-            break
-    if restart_required:
-        if not game_over_music_playing:
-            game_over_music.play(-1)
-            game_over_music_playing = True
-            BackgroundMusic.stop()
-            game_play_music_playing = False
+            if len(circle_group) >= 1000 or (not circle.dragging and circle.body.position[1] - circle.radius <= 0):
+                restart_required = True
+                break
+        if restart_required:
+            if not game_over_music_playing:
+                game_over_music.play(-1)
+                game_over_music_playing = True
+                BackgroundMusic.stop()
+                game_play_music_playing = False
 
-        play_game_over_sound_effect()
-        endGame.render(screen)
-        RestartButton.handle_event(event)
-        RestartButton.draw(screen)
-        if RestartButton.clicked:
-            restart_game()
-            RestartButton.reset()
-    else:
-        if game_over_music_playing:
-            game_over_music.stop()
-            game_over_music_playing = False
+            play_game_over_sound_effect()
+            endGame.render(screen)
+            RestartButton.handle_event(event)
+            RestartButton.draw(screen)
+            if RestartButton.clicked:
+                await restart_game()
+                RestartButton.reset()
+        else:
+            if game_over_music_playing:
+                game_over_music.stop()
+                game_over_music_playing = False
 
-        if not game_play_music_playing:
-            BackgroundMusic.play(-1)
-            game_play_music_playing = True
+            if not game_play_music_playing:
+                BackgroundMusic.play(-1)
+                game_play_music_playing = True
 
-        if not game_paused:
-            game_over_music.stop()
-            game_over_music_playing = False
-            Drop()
-            space.step(1/60)
-    xp.render(screen)
-    # windows
-    if shopWindow.visible:
-        shopWindow.draw()
-        shopWindow.handle_event(event)
-        shopWindow.update()
-    if levelUpWindow.visible:
-        levelUpWindow.handle_event(event)
-        levelUpWindow.draw()
-        levelUpWindow.update()
-    if menuWindow.visible:
-        menuWindow.draw()
-        menuWindow.handle_event(event)
-        menuWindow.update()
-    # update
-    pygame.display.update()
-    clock.tick(frameRate)
-pygame.quit()
-sys.exit()
+            if not game_paused:
+                game_over_music.stop()
+                game_over_music_playing = False
+                Drop()
+                space.step(1/60)
+        xp.render(screen)
+        # windows
+        if shopWindow.visible:
+            shopWindow.draw()
+            shopWindow.handle_event(event)
+            shopWindow.update()
+        if levelUpWindow.visible:
+            levelUpWindow.handle_event(event)
+            levelUpWindow.draw()
+            levelUpWindow.update()
+        if menuWindow.visible:
+            menuWindow.draw()
+            menuWindow.handle_event(event)
+            menuWindow.update()
+        # update
+        pygame.display.update()
+        clock.tick(frameRate)
+        await asyncio.sleep(0)
+        if not COUNT_DOWN:
+            return
+
+if __name__ == "__main__":
+    asyncio.run(main())

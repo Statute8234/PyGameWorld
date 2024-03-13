@@ -4,7 +4,7 @@
 name: Color_run_down
 on:
   push:
-    branches: [ "Color_run_down.py" ]
+    branches: [ "main.py" ]
   pull_request:
     branches: [ "Color_run_down" ]
 
